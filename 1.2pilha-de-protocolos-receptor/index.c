@@ -60,11 +60,22 @@ void mid_level_layer(Byte input[80], int size, int output[80])
   }
 }
 
+void high_level_layer(int input[80], int size, char output[80])
+{
+  int i;
+  for (i = 0; i < size; i++)
+  {
+    output[i] = input[i];
+  }
+  output[i] = '\0';
+}
+
 int main(void)
 {
   int size, i, j;
   Byte low__level_layer_data[80];
   int mid__level_layer_data[80];
+  char high__level_layer_data[80];
 
   for (i = 0; i < 80; i++)
   {
@@ -77,24 +88,10 @@ int main(void)
 
   size = receive_low_level_layer(low__level_layer_data);
 
-  for (i = 0; i < size; i++)
-  {
-    for (j = 0; j < low__level_layer_data[i].size; j++)
-    {
-      printf("%d", low__level_layer_data[i].data[j]);
-    }
-
-    printf(" ");
-  }
-
-  printf("\n");
-
   mid_level_layer(low__level_layer_data, size, mid__level_layer_data);
 
-  for (i = 0; i < size; i++)
-  {
-    printf("%d ", mid__level_layer_data[i]);
-  }
+  high_level_layer(mid__level_layer_data, size, high__level_layer_data);
 
+  printf("%s", high__level_layer_data);
   return 0;
 }
