@@ -84,6 +84,27 @@ void emitNRZSignal(Byte bytes[80], int size)
   }
 }
 
+void emitManchesterSignal(Byte bytes[80], int size, char k)
+{
+  int i, j;
+  printf("Manchester %c %d ", k, (size * 8) * 2);
+
+  for (i = 0; i < size; i++)
+  {
+    for (j = 7; j >= 0; j--)
+    {
+      if (bytes[i].data[j] == 0)
+      {
+        printf("AB");
+      }
+      else
+      {
+        printf("BA");
+      }
+    }
+  }
+}
+
 int main(void)
 {
   /*
@@ -99,12 +120,21 @@ int main(void)
 
   scanf("%s ", encoder);
 
-  high_level_layer(message);
-  size = mid_level_layer(message, data);
-  low_level_layer(data, size, bytes);
   if (strcmp(encoder, "NRZ") == 0)
   {
+    high_level_layer(message);
+    size = mid_level_layer(message, data);
+    low_level_layer(data, size, bytes);
     emitNRZSignal(bytes, size);
+  }
+  else if (strcmp(encoder, "Manchester") == 0)
+  {
+    char k;
+    scanf(" %c ", &k);
+    high_level_layer(message);
+    size = mid_level_layer(message, data);
+    low_level_layer(data, size, bytes);
+    emitManchesterSignal(bytes, size, k);
   }
 
   return 0;
