@@ -12,6 +12,11 @@ typedef struct manchester
   short binary[16];
 } Manchester;
 
+typedef struct FourBFiveB
+{
+  short binary[10];
+} FourBFiveB;
+
 void charToBinary(char input, short *output)
 {
   int i;
@@ -75,11 +80,63 @@ void emitManchesterSignal(short *binary)
   }
 }
 
+static const short lookup4b5b[16][5] = {
+    {1, 1, 1, 1, 0},
+    {0, 1, 0, 0, 1},
+    {1, 0, 1, 0, 0},
+    {1, 0, 1, 0, 1},
+    {0, 1, 0, 1, 0},
+    {0, 1, 0, 1, 1},
+    {0, 1, 1, 1, 0},
+    {0, 1, 1, 1, 1},
+    {1, 0, 0, 1, 0},
+    {1, 0, 0, 1, 1},
+    {1, 0, 1, 1, 0},
+    {1, 0, 1, 1, 1},
+    {1, 1, 0, 1, 0},
+    {1, 1, 0, 1, 1},
+    {1, 1, 1, 0, 0},
+    {1, 1, 1, 0, 1}};
+
+void encode4b5b(short *input, short *output)
+{
+
+  short i, head, tail;
+  head = 0;
+  tail = 0;
+
+  for (i = 0; i < 4; i++)
+  {
+    head = head << 1 | input[i];
+    tail = tail << 1 | input[i + 4];
+  }
+  for (i = 0; i < 5; i++)
+  {
+    output[i] = lookup4b5b[head][i];
+    output[i + 5] = lookup4b5b[tail][i];
+  }
+}
+
+void emitFourBFiveBSignal(short *binary)
+{
+  int i;
+  for (i = 0; i < 10; i++)
+  {
+    if (binary[i] == 1)
+    {
+      printf("%c", 'A');
+    }
+    else
+    {
+      printf("%c", 'B');
+    }
+  }
+}
+
 int main(void)
 {
   char encoder[12], input[81];
   OriginalByte bytes[80];
-  Manchester manchesterBytes[80];
 
   int size;
   scanf("%s ", encoder);
@@ -91,14 +148,33 @@ int main(void)
   }
   else if (strcmp(encoder, "Manchester") == 0)
   {
-    int i, j;
+    int i;
+    char k;
+    Manchester manchesterBytes[80];
+    scanf(" %c ", &k);
     scanf("%[^\n]", input);
     size = strlen(input);
+    printf("Manchester %c %d ", k, size * 16);
+
     for (i = 0; i < size; i++)
     {
       charToBinary(input[i], bytes[i].binary);
       encodeManchester(bytes[i].binary, manchesterBytes[i].binary);
       emitManchesterSignal(manchesterBytes[i].binary);
+    }
+  }
+  else if (strcmp(encoder, "4b5b") == 0)
+  {
+    int i, size;
+    FourBFiveB fourBFiveB[80];
+    scanf("%[^\n]", input);
+    size = strlen(input);
+    printf("4b5b %d ", size * 10);
+    for (i = 0; i < size; i++)
+    {
+      charToBinary(input[i], bytes[i].binary);
+      encode4b5b(bytes[i].binary, fourBFiveB[i].binary);
+      emitFourBFiveBSignal(fourBFiveB[i].binary);
     }
   }
 
