@@ -12,6 +12,22 @@ typedef struct manchester
   short binary[16];
 } Manchester;
 
+typedef struct FourBFiveB
+{
+  short binary[10];
+} FourBFiveB;
+
+short binaryToDecimal(short *binary, short start, short end)
+{
+  short i, decimal;
+  decimal = 0;
+  for (i = start; i < end; i++)
+  {
+    decimal = decimal << 1 | binary[i];
+  }
+  return decimal;
+}
+
 void decodeNRZ(char *input, short signal_length, OriginalByte *bytes)
 {
   short i, range;
@@ -74,6 +90,92 @@ void decodeManchester(Manchester *manchester, short size, OriginalByte *bytes)
   }
 }
 
+void receive4b5bSignal(char *input, short signal_length, FourBFiveB *fourBFiveB)
+{
+  short i, j, range;
+  range = signal_length / 10;
+  for (i = 0; i < range; i++)
+  {
+    for (j = 0; j < 10; j++)
+    {
+      fourBFiveB[i].binary[j] = input[(i * 10) + j] == 'A' ? 1 : 0;
+    }
+  }
+}
+
+void decode4b5b(FourBFiveB *fourBFiveB, short size, OriginalByte *bytes)
+{
+  short i;
+  short map[31][4] = {
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 0},
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 1},
+      {0, 1, 0, 0},
+      {0, 1, 0, 1},
+      {0, 1, 1, 0},
+      {0, 0, 0, 0},
+
+      {0, 1, 1, 0},
+      {0, 1, 1, 1},
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 0},
+
+      {1, 0, 0, 0},
+      {1, 0, 0, 1},
+      {0, 0, 1, 0},
+      {0, 0, 1, 1},
+      {1, 0, 1, 0},
+      {1, 0, 1, 1},
+      {0, 0, 0, 0},
+
+      {0, 0, 0, 0},
+
+      {1, 1, 0, 0},
+      {1, 1, 0, 1},
+      {1, 1, 1, 0},
+      {1, 1, 1, 1},
+      {0, 0, 0, 0},
+  };
+
+  for (i = 0; i < size; i++)
+  {
+    short j;
+    short head = 0;
+    short tail = 0;
+    short data = 0;
+    head = binaryToDecimal(fourBFiveB[i].binary, 0, 5);
+    tail = binaryToDecimal(fourBFiveB[i].binary, 5, 10);
+    for (j = 0; j < 4; j++)
+    {
+      bytes[i].binary[j] = map[head][j];
+    }
+
+    for (j = 4; j < 8; j++)
+    {
+      bytes[i].binary[j] = map[tail][j - 4];
+    }
+
+    data = binaryToDecimal(bytes[i].binary, 0, 8);
+    bytes[i].data = data;
+  }
+}
+
 int main(void)
 {
   char encoder[12], input[1281];
@@ -109,6 +211,19 @@ int main(void)
   }
   else if (strcmp(encoder, "4b5b") == 0)
   {
+    FourBFiveB fourBFiveB[80];
+
+    OriginalByte bytes[80];
+
+    short i, j;
+    scanf("%hd %[^\n]", &signal_length, input);
+    receive4b5bSignal(input, signal_length, fourBFiveB);
+    decode4b5b(fourBFiveB, signal_length / 10, bytes);
+
+    for (i = 0; i < signal_length / 10; i++)
+    {
+      printf("%c", bytes[i].data);
+    }
   }
 
   return 0;
