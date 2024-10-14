@@ -1,14 +1,21 @@
 #include <stdio.h>
+#include <string.h>
+
+typedef enum boolean
+{
+  false,
+  true
+} boolean;
 
 typedef struct frame
 {
-  short *flag_start;
-  short *address;
-  short *control;
-  short *protocol;
-  short *payload;
-  short *checksum;
-  short *flag_end;
+  short flag_start[8];
+  short address[8];
+  short control[8];
+  short protocol[16];
+  short payload[1500 * 8];
+  short checksum[16];
+  short flag_end[8];
 } Frame;
 
 short mapHexaToDecimal(char n)
@@ -76,7 +83,6 @@ int convertHexaToDecimal(char *n)
   int pow = 1;
   for (i = 3; i >= 0; i--)
   {
-    printf("%hd\n", mapHexaToDecimal(n[i]));
     result += mapHexaToDecimal(n[i]) * pow;
     pow = pow << 4;
   }
@@ -97,15 +103,55 @@ void convertDecimalToBinary(int n, short *output)
   }
 }
 
-const short flag[8] = {
-    0,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    0};
+void charToBinary(char input, short *output)
+{
+  int i;
+  for (i = 7; i >= 0; i--)
+  {
+    output[i] = (input >> (7 - i)) & 1;
+  }
+}
+
+void convertStringToBinary(char *message, short *output)
+{
+
+  short i, j, index;
+  for (i = 0; message[i] != '\0'; i++)
+  {
+    short bin[8];
+    charToBinary(message[i], bin);
+    for (j = 0; j < 8; j++)
+    {
+      output[index++] = bin[j];
+    }
+  }
+}
+
+boolean byteCompare(short *a, short *b)
+{
+  short i;
+  for (i = 0; i < 8; i++)
+  {
+    if (a[i] != b[i])
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
+void byteStuffing(short *payload, short size, short *stuffedPayload, short stuffedSize)
+{
+  short flag[8] = {0, 1, 1, 1, 1, 1, 1, 0};
+
+  short escape[8] = {0, 1, 1, 1, 1, 1, 1, 0};
+
+  short i, j;
+
+  for ()
+  {
+  }
+}
 
 const short address[8] = {
     1, 1, 1, 1, 1, 1, 1, 1};
@@ -113,33 +159,31 @@ const short address[8] = {
 const short control[8] = {
     0, 0, 0, 0, 0, 0, 1, 1};
 
-void enframe(Frame *frame)
-{
-  frame->flag_start = flag;
-  frame->address = address;
-  frame->control = control;
-  frame->flag_end = flag;
-}
-
 int main(void)
 {
-  short i, protocol[16];
+  short i, protocol[16], payload[1500 * 8], stuffedPayload[1500 * 8], size;
   char p[5], m[15001];
+
   Frame frame;
 
   scanf("%s %[^\n]", p, m);
 
-  printf("%d\n", convertHexaToDecimal(p));
-  convertDecimalToBinary(convertHexaToDecimal(p), protocol);
+  size = strlen(m);
 
-  for (i = 1; i >= 0; i--)
-  {
-    short j;
-    for (j = 7; j >= 0; j--)
+  convertDecimalToBinary(convertHexaToDecimal(p), protocol);
+  convertStringToBinary(m, payload);
+
+  /*
+    for (i = 0; i < size; i++)
     {
-      printf("%d", protocol[(i * 8) + j]);
+      int j;
+      for (j = 0; j < 8; j++)
+      {
+        printf("%hd", payload[(i * 8) + j]);
+      }
+      printf(" ");
     }
-    printf(" ");
-  }
+  */
+
   return 0;
 }
