@@ -7,13 +7,19 @@ typedef enum boolean
   true
 } boolean;
 
+typedef struct originalByte
+{
+  char data;
+  short binary[8];
+} OriginalByte;
+
 typedef struct frame
 {
   short flag_start[8];
   short address[8];
   short control[8];
   short protocol[16];
-  short payload[1500 * 8];
+  OriginalByte payload[1518];
   short checksum[16];
   short flag_end[8];
 } Frame;
@@ -112,18 +118,13 @@ void charToBinary(char input, short *output)
   }
 }
 
-void convertStringToBinary(char *message, short *output)
+void convertStringToBinary(char *message, OriginalByte *bytes)
 {
-
-  short i, j, index;
+  short i;
   for (i = 0; message[i] != '\0'; i++)
   {
-    short bin[8];
-    charToBinary(message[i], bin);
-    for (j = 0; j < 8; j++)
-    {
-      output[index++] = bin[j];
-    }
+    bytes[i].data = message[i];
+    charToBinary(message[i], bytes[i].binary);
   }
 }
 
@@ -140,17 +141,29 @@ boolean byteCompare(short *a, short *b)
   return true;
 }
 
-void byteStuffing(short *payload, short size, short *stuffedPayload, short stuffedSize)
+void copyByte(short *destiny, short *source)
+{
+  memcpy(destiny, source, 8 * sizeof(short));
+}
+
+short byteStuffing(OriginalByte *payload, short size, OriginalByte *stuffedPayload)
 {
   short flag[8] = {0, 1, 1, 1, 1, 1, 1, 0};
 
-  short escape[8] = {0, 1, 1, 1, 1, 1, 1, 0};
+  short escape[8] = {0, 1, 1, 1, 1, 1, 0, 1};
 
-  short i, j;
+  short i, stuffedSize;
+  stuffedSize = 0;
 
-  for ()
+  for (i = 0; i < size; i++)
   {
+    if (byteCompare(payload[i].binary, flag) || byteCompare(payload[i].binary, escape))
+    {
+      copyByte(stuffedPayload[stuffedSize++].binary, escape);
+    }
+    copyByte(stuffedPayload[stuffedSize++].binary, payload[i].binary);
   }
+  return stuffedSize;
 }
 
 const short address[8] = {
@@ -161,8 +174,9 @@ const short control[8] = {
 
 int main(void)
 {
-  short i, protocol[16], payload[1500 * 8], stuffedPayload[1500 * 8], size;
+  short i, j, protocol[16], size, stuffedSize;
   char p[5], m[15001];
+  OriginalByte payload[1500];
 
   Frame frame;
 
@@ -172,18 +186,16 @@ int main(void)
 
   convertDecimalToBinary(convertHexaToDecimal(p), protocol);
   convertStringToBinary(m, payload);
+  stuffedSize = byteStuffing(payload, size, frame.payload);
 
-  /*
-    for (i = 0; i < size; i++)
+  for (i = 0; i < stuffedSize; i++)
+  {
+    for (j = 0; j < 8; j++)
     {
-      int j;
-      for (j = 0; j < 8; j++)
-      {
-        printf("%hd", payload[(i * 8) + j]);
-      }
-      printf(" ");
+      printf("%hd", frame.payload[i].binary[j]);
     }
-  */
+    printf(" ");
+  }
 
   return 0;
 }
