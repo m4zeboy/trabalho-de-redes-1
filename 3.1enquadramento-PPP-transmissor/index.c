@@ -206,13 +206,13 @@ short sum(short a, short b, short carryIn, short *carryOut)
   }
 }
 
-void calculateChecksum(short *checksum, short *protocol, OriginalByte *payload, int size)
+/* return the size of buffer in bits */
+short enframeBuffer(short *buffer, short *protocol, OriginalByte *payload, int size)
 {
-  short buffer[1500 + 32], n, i, s;
-  n = 0;
-  short addressAndControl[16] = {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1};
+  int n, i;
   short control[8] = {0, 0, 0, 0, 0, 0, 1, 1};
 
+  n = 0;
   /* address */
   for (i = 0; i < 8; i++)
   {
@@ -224,13 +224,13 @@ void calculateChecksum(short *checksum, short *protocol, OriginalByte *payload, 
   {
     buffer[i] = control[i - 8];
   }
-  /* protocol */
 
-  n = 0;
+  /* protocol */
+  n = 15;
   for (i = 16; i < 32; i++)
   {
     buffer[i] = protocol[n];
-    n++;
+    n--;
   }
 
   /* complete with zero if payload size is odd */
@@ -242,23 +242,44 @@ void calculateChecksum(short *checksum, short *protocol, OriginalByte *payload, 
       payload[size].binary[i] = 0;
     }
     size++;
-
-    for (i = 0; i < size; i++)
-    {
-      int j;
-      for (j = 0; j < 8; j++)
-      {
-        printf("%hd", payload[i].binary[j]);
-      }
-      printf(" ");
-    }
   }
 
   /* payload */
   n = 0;
-  for (i = 32; i < 8 * size; i++)
+  i = 32;
+  for (n = 0; n < size; n = n + 2)
   {
-    buffer[i] = payload
+    short j;
+    /* first byte */
+    for (j = 0; j < 8; j++)
+    {
+      buffer[i] = payload[n].binary[j];
+      i++;
+    }
+    /* last byte */
+    for (j = 0; j < 8; j++)
+    {
+      buffer[i] = payload[n + 1].binary[j];
+      i++;
+    }
+  }
+
+  return i;
+}
+
+void calculateChecksum(short *checksum, short *protocol, OriginalByte *payload, int size)
+{
+  short buffer[1500 + 32], i, n;
+  i = enframeBuffer(buffer, protocol, payload, size);
+  for (n = 0; n < i / 16; n++)
+  {
+    /* row */
+    int j;
+    for (j = 0; j < 16; j++)
+    {
+      printf("%hd", buffer[(n * 16) + j]);
+    }
+    printf(" ");
   }
 }
 
@@ -270,53 +291,19 @@ int main(void)
 
   Frame frame;
 
-  short flag[8] = {0, 1, 1, 1, 1, 1, 1, 0};
-  short address[8] = {1, 1, 1, 1, 1, 1, 1, 1};
-  short control[8] = {0, 0, 0, 0, 0, 0, 1, 1};
-
   scanf("%s %[^\n]", p, m);
 
   size = strlen(m);
-  printf("%d\n", size);
+
   convertDecimalToBinary(convertHexaToDecimal(p), protocol);
+
+  printf("\n");
+
   convertStringToBinary(m, payload);
 
   stuffedSize = byteStuffing(payload, size, frame.payload);
 
-  /*
-  for (i = 0; i < 8; i++)
-    printf("%hd", flag[i]);
-  printf(" ");
-  for (i = 0; i < 8; i++)
-    printf("%hd", address[i]);
-  printf(" ");
-  for (i = 0; i < 8; i++)
-    printf("%hd", control[i]);
-  printf(" ");
-  for (i = 0; i < 16; i++)
-    printf("%hd", protocol[i]);
-  printf(" ");
-
-  for (i = 0; i < stuffedSize; i++)
-  {
-    for (j = 0; j < 8; j++)
-    {
-      printf("%hd", frame.payload[i].binary[j]);
-    }
-    printf(" ");
-  }
-  */
-
-  calculateChecksum(frame.checksum, payload, size);
-  /*
-  for (i = 0; i < 16; i++)
-    printf("%hd", frame.checksum[i]);
-  printf(" ");
-
-  for (i = 0; i < 8; i++)
-    printf("%hd", flag[i]);
-  printf("\n");
-  */
+  calculateChecksum(frame.checksum, protocol, payload, size);
 
   return 0;
 }
