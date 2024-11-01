@@ -146,6 +146,11 @@ void copyByte(short *destiny, short *source)
   memcpy(destiny, source, 8 * sizeof(short));
 }
 
+void copyShortArray(short *destiny, short *source, short size)
+{
+  memcpy(destiny, source, size * sizeof(short));
+}
+
 short byteStuffing(OriginalByte *payload, short size, OriginalByte *stuffedPayload)
 {
   short flag[8] = {0, 1, 1, 1, 1, 1, 1, 0};
@@ -170,14 +175,17 @@ short sum(short a, short b, short carryIn, short *carryOut)
 {
   if (a == 0 && b == 0 && carryIn == 0)
   {
+    *carryOut = 0;
     return 0;
   }
   else if (a == 1 && b == 0 && carryIn == 0)
   {
+    *carryOut = 0;
     return 1;
   }
   else if (a == 0 && b == 1 && carryIn == 0)
   {
+    *carryOut = 0;
     return 1;
   }
   else if (a == 1 && b == 1 && carryIn == 0)
@@ -187,6 +195,7 @@ short sum(short a, short b, short carryIn, short *carryOut)
   }
   else if (a == 0 && b == 0 && carryIn == 1)
   {
+    *carryOut = 0;
     return 1;
   }
   else if (a == 1 && b == 0 && carryIn == 1)
@@ -204,6 +213,27 @@ short sum(short a, short b, short carryIn, short *carryOut)
     *carryOut = 1;
     return 1;
   }
+}
+
+void sum16bits(short *a, short *b, short *result)
+{
+  short i, carry;
+  short s[16] = {0};
+  carry = 0;
+  for (i = 15; i >= 0; i--)
+  {
+    s[i] = sum(a[i], b[i], carry, &carry);
+  }
+  if (carry == 1)
+  {
+    short one[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    for (i = 15; i >= 0; i--)
+    {
+      carry = 0;
+      s[i] = sum(s[i], one[i], carry, &carry);
+    }
+  }
+  memcpy(result, s, 16 * sizeof(short));
 }
 
 /* return the size of buffer in bits */
@@ -274,12 +304,14 @@ void calculateChecksum(short *checksum, short *protocol, OriginalByte *payload, 
   for (n = 0; n < i / 16; n++)
   {
     /* row */
-    int j;
-    for (j = 0; j < 16; j++)
-    {
-      printf("%hd", buffer[(n * 16) + j]);
-    }
-    printf(" ");
+    short current[16], offset;
+    offset = n * 16;
+    copyShortArray(current, buffer + offset, 16);
+    sum16bits(checksum, current, checksum);
+  }
+  for (n = 0; n < 16; n++)
+  {
+    checksum[n] = checksum[n] == 0 ? 1 : 0;
   }
 }
 
@@ -290,20 +322,73 @@ int main(void)
   OriginalByte payload[1500];
 
   Frame frame;
-
+  short checksum[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  short flag[] = {0, 1, 1, 1, 1, 1, 1, 0};
+  short address[] = {1, 1, 1, 1, 1, 1, 1, 1};
+  short control[] = {0, 0, 0, 0, 0, 0, 1, 1};
   scanf("%s %[^\n]", p, m);
 
   size = strlen(m);
 
   convertDecimalToBinary(convertHexaToDecimal(p), protocol);
 
-  printf("\n");
-
   convertStringToBinary(m, payload);
 
   stuffedSize = byteStuffing(payload, size, frame.payload);
 
-  calculateChecksum(frame.checksum, protocol, payload, size);
+  calculateChecksum(checksum, protocol, payload, size);
+
+  for (i = 0; i < 8; i++)
+  {
+    printf("%hd", flag[i]);
+  }
+  printf(" ");
+
+  for (i = 0; i < 8; i++)
+  {
+
+    printf("%hd", address[i]);
+  }
+  printf(" ");
+
+  for (i = 0; i < 8; i++)
+  {
+
+    printf("%hd", control[i]);
+  }
+  printf(" ");
+
+  for (i = 1; i >= 0; i--)
+  {
+    for (j = 7; j >= 0; j--)
+    {
+      printf("%hd", protocol[(i * 8) + j]);
+    }
+    printf(" ");
+  }
+
+  for (i = 0; i < stuffedSize; i++)
+  {
+    for (j = 0; j < 8; j++)
+    {
+      printf("%hd", frame.payload[i].binary[j]);
+    }
+    printf(" ");
+  }
+
+  for (i = 0; i < 2; i++)
+  {
+    for (j = 0; j < 8; j++)
+    {
+      printf("%hd", checksum[(i * 8) + j]);
+    }
+    printf(" ");
+  }
+
+  for (i = 0; i < 8; i++)
+  {
+    printf("%hd", flag[i]);
+  }
 
   return 0;
 }
