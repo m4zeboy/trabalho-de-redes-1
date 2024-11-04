@@ -132,7 +132,7 @@ void delimitFrame(char *frame)
   end = end + PROTOCOL_SIZE;
   protocolBinary = getContentBetween(start, end);
   protocol = strtol(protocolBinary, &endptr, 2);
-  printf("Control: %lX\n", protocol);
+  printf("Protocol: %.4lX\n", protocol);
 
   /* CHECKSUM */
   frameLength = strlen(frame);
