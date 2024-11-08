@@ -81,6 +81,7 @@ unsigned short calculateChecksum(unsigned char *protocolBytes, char *messageStri
       }
     }
 
+    free(checksumData);
     checksum = ~sum & 0xFFFF;
     return checksum;
   }
@@ -136,8 +137,11 @@ int main()
 
   for (i = 0; i < frameLength; i++)
   {
-    printf("%s ", byteToBinary(frame[i]));
+    char *binary = byteToBinary(frame[i]);
+    printf("%s ", binary);
+    free(binary);
   }
+  free(stuffedString);
 
   return 0;
 }

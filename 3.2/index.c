@@ -11,22 +11,22 @@
 #define CHECKSUM_SIZE 16
 #define MAX_FRAME_SIZE 1518 * 8
 
-void readInput(char *stream)
+void readInput(unsigned char *stream)
 {
-  fgets(stream, MAX_SIZE, stdin);
+  fgets((char *)stream, MAX_SIZE, stdin);
 }
 
-char *getContentBetween(char *start, char *end)
+unsigned char *getContentBetween(unsigned char *start, unsigned char *end)
 {
   size_t size;
-  char *result;
+  unsigned char *result;
   if (start == NULL || end == NULL || end < start)
   {
     return NULL;
   }
 
   size = end - start;
-  result = (char *)malloc(size + 1);
+  result = (unsigned char *)malloc(size + 1);
 
   if (result == NULL)
   {
@@ -39,18 +39,18 @@ char *getContentBetween(char *start, char *end)
   return result;
 }
 
-int extractFrames(char *input, char *frames[100])
+int extractFrames(unsigned char *input, unsigned char *frames[100])
 {
-  char *current, *end, *possibleFrame;
+  unsigned char *current, *end, *possibleFrame;
   short frameIndex = 0;
   current = input;
   while (current)
   {
     current = current + 8;
-    end = strstr(current, FLAG);
+    end = (unsigned char *)strstr((char *)current, FLAG);
     possibleFrame = getContentBetween(current, end);
     current = end;
-    if (possibleFrame && strlen(possibleFrame) > 0)
+    if (possibleFrame && strlen((char *)possibleFrame) > 0)
     {
       frames[frameIndex] = possibleFrame;
       frameIndex++;
@@ -60,126 +60,93 @@ int extractFrames(char *input, char *frames[100])
   return frameIndex;
 }
 
-char **bitsToBytes(char *payload, int payloadBytesLength)
+unsigned char *convertBytesToChar(unsigned char *frameBytes)
 {
-  char **bytes, *start, *end, *byte;
-  int i;
-  bytes = (char **)malloc(1518 * sizeof(char *));
-
-  start = payload;
-  end = payload + 8;
-  for (i = 0; i < payloadBytesLength; i++)
+  unsigned char *frame;
+  int length;
+  length = strlen((char *)frameBytes) / 8;
+  frame = (unsigned char *)malloc(length * sizeof(char));
+  if (frame != NULL)
   {
-    byte = getContentBetween(start, end);
-    bytes[i] = byte;
-    start = end;
-    end = end + 8;
-  }
-  return bytes;
-}
-
-char **deStuffPayload(char *payload, int *payloadBytesLength)
-{
-  char **bytes, **destuffedBytes;
-  int payloadBitsLength, i, d;
-  payloadBitsLength = strlen(payload);
-  *payloadBytesLength = payloadBitsLength / 8;
-
-  bytes = bitsToBytes(payload, *payloadBytesLength);
-
-  destuffedBytes = (char **)malloc(1518 * sizeof(char *));
-
-  i = 0;
-  d = 0;
-  for (i = 0; i < *payloadBytesLength; i++)
-  {
-    int isSpecialCharacter = strncmp(bytes[i], ESCAPE, 8) == 0;
-    if (isSpecialCharacter)
+    int i;
+    for (i = 0; i < length; i++)
     {
-      /*process the next */
-      continue;
+      char byte[9];
+      unsigned char data;
+      char *endptr;
+      int j;
+      for (j = 0; j < 8; j++)
+      {
+        byte[j] = frameBytes[(i * 8) + j];
+      }
+      byte[j] = '\0';
+      data = (unsigned char)strtol(byte, &endptr, 2);
+      frame[i] = data;
     }
-    destuffedBytes[d] = bytes[i];
-    d++;
+    frame[i] = '\0';
+    return frame;
   }
-  return destuffedBytes;
+  return NULL;
 }
 
-void delimitFrame(char *frame)
+unsigned char *byteDestuffing(unsigned char *payload)
 {
-
-  char *start, *end, *endptr, *addressBinary, *controlBinary, *protocolBinary, *checksumBinary, *payloadBinary, **deStuffedPayload;
-  long int address, control, protocol, checksum, frameLength;
-  int payloadBytesLength, i;
-  payloadBytesLength = 0;
-
-  start = frame;
-  end = frame + ADDRESS_SIZE;
-  /* ADDRESS */
-  addressBinary = getContentBetween(start, end);
-  address = strtol(addressBinary, &endptr, 2);
-  printf("Address: %ld\n", address);
-
-  /* CONTROL*/
-  start = end;
-  end = end + CONTROL_SIZE;
-  controlBinary = getContentBetween(start, end);
-  control = strtol(controlBinary, &endptr, 2);
-  printf("Control: %ld\n", control);
-
-  /* PROTOCOL*/
-  start = end;
-  end = end + PROTOCOL_SIZE;
-  protocolBinary = getContentBetween(start, end);
-  protocol = strtol(protocolBinary, &endptr, 2);
-  printf("Protocol: %.4lX\n", protocol);
-
-  /* CHECKSUM */
-  frameLength = strlen(frame);
-  end = frame + frameLength;
-  start = end - CHECKSUM_SIZE;
-  checksumBinary = getContentBetween(start, end);
-  checksum = strtol(checksumBinary, &endptr, 2);
-  printf("Checksum: %lX (Binary %s)\n", checksum, checksumBinary);
-
-  /* PAYLOAD */
-  end = start;
-  start = frame + ADDRESS_SIZE + CONTROL_SIZE + PROTOCOL_SIZE;
-  payloadBinary = getContentBetween(start, end);
-  deStuffedPayload = deStuffPayload(payloadBinary, &payloadBytesLength);
-
-  printf("Data: ");
-  for (i = 0; i < payloadBytesLength; i++)
+  int length, i, index;
+  unsigned char *destuffedPayload;
+  length = strlen((char *)payload);
+  destuffedPayload = (unsigned char *)malloc(length * sizeof(char));
+  if (destuffedPayload != NULL)
   {
-    char currentChar = strtol(deStuffedPayload[i], &endptr, 2);
-    printf("%c", currentChar);
+    i = 0;
+    index = 0;
+    while (payload[i] != '\0')
+    {
+      if (payload[i] == 0x7D)
+      {
+        /* check the next byte and apply XOR with 0x20*/
+        i = i + 1;
+        destuffedPayload[index++] = payload[i++] ^ 0x20;
+      }
+      else
+      {
+        destuffedPayload[index++] = payload[i++];
+      }
+      destuffedPayload[index] = '\0';
+    }
+    return destuffedPayload;
   }
-  printf("\n");
-
-  /* CHECKSUM */
-  printf("Data integrity: ok.\n");
+  return NULL;
 }
 
 int main(void)
 {
-  char bit_stream[MAX_SIZE], *frames[100];
-  short frameCount, f;
-  /*
-  01111110
-  11111111
-  00000011
-  11000000 00100001
-  0101001001100101011001000110010101110011
-  00010111 00001111
-  01111110
-  */
-  readInput(bit_stream);
-  frameCount = extractFrames(bit_stream, frames);
+  unsigned char stream[MAX_SIZE], *frames[100];
+  int frameCount, f;
+  readInput(stream);
+  frameCount = extractFrames(stream, frames);
   for (f = 0; f < frameCount; f++)
   {
+    unsigned char *frameBytes, *payload, *start, *end, address, control;
+    int frameLength;
     printf("| PPP Frame %d control fields |\n", f);
-    delimitFrame(frames[f]);
-    printf("\n");
+    printf("%s\n", frames[f]);
+    frameBytes = convertBytesToChar(frames[f]);
+    frameLength = strlen((char *)frameBytes);
+
+    address = frameBytes[0];
+    control = frameBytes[1];
+    printf("Address: %d\n", address);
+    printf("Control: %d\n", control);
+
+    printf("Protocol: %02X%02X\n", frameBytes[2], frameBytes[3]);
+    printf("Checksum: %02X%02X\n", frameBytes[frameLength - 2], frameBytes[frameLength - 1]);
+    start = frameBytes + 4;
+    end = frameBytes + (frameLength - 2);
+
+    payload = getContentBetween(start, end);
+    printf("%s\n", payload);
+    payload = byteDestuffing(payload);
+    printf("%s\n", payload);
   }
   return 0;
 }
